@@ -1,0 +1,21 @@
+Package: mingiPolygons
+Title: Function for Identifying Polygon Objects In A Map In Shiny
+Version: 0.1.0
+Authors@R: 
+    c(person(given="Martin", family="Mburu", "mmburu961@gmail.com", role = c("aut", "cre")),
+    person(given="Ted", family="Muthomi", "muthomited@gmail.com", role=c("aut")))
+Description: This package is able to select any polgyon object(country, county or state)
+    from any map visualization formed by ggplot or any other package extension deployed in Shiny.
+    It is an extension of nearPoints() but specifically for maps.
+License: GPL (>= 3)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.2.3
+Depends: 
+    tidyverse
+Imports: 
+    dplyr,
+    magrittr,
+    reactable,
+    shiny,
+    tibble
