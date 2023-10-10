@@ -20,13 +20,15 @@ It is an extension of nearPoints() but specifically for maps.
 
  ## SETUP AND REQUIREMENTS
 
- mingiPolygons requires the map visualization to be deployed in Shiny since it takes plot_click as an argument.
-
  The packages Shiny, tidyverse is needed for this package. 
 
  To setup this package in your RStudio, install devtools then devtools::install_github("mmburu8/mingiPolygons")
 
  To see the help page run '??mingiPolygons'. Select 'mingiPolygons::mingiPolygons'
+
+ mingiPolygons requires the map visualization to be deployed in Shiny since it takes plot_click as an argument.
+
+ It also takes in data from nearPoints function.
  
 
 ## TECHNOLOGIES USED
