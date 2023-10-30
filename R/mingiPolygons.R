@@ -5,69 +5,37 @@ library(tidyverse)
 # short function to create %!in% operator
 '%!in%' <- function(x, y)!('%in%' (x, y))
 
-# function (possible library)
-polygonIdentify <- function(data_main, data_click, click_vector, col_spec){
-  #get states captured by click
-  statesClick <- unique(data_click[, col_spec])
-  # rows from data_main
-  df_a <- data_main[data_main[, col_spec] == as.character(statesClick[1]),]
-  df_b <- data_main[data_main[, col_spec] == as.character(statesClick[2]),]
-  # evaluate the correct states
-  # find closest point to nearPoints
-  dist_y <- c(abs(max(df_b$y) - mean(data_click$y)), abs(min(df_b$y) - mean(data_click$y)),
-              abs(max(df_a$y) - mean(data_click$y)), abs(min(df_a$y) - mean(data_click$y)))
-  dist_x <- c(abs(max(df_b$x) - mean(data_click$x)), abs(min(df_b$x) - mean(data_click$x)),
-              abs(max(df_a$x) - mean(data_click$x)), abs(min(df_a$x) - mean(data_click$x)))
-  # find closest points by clickVector
-  click_y <- c(abs(max(df_b$y) - click_vector$y), abs(min(df_b$y) - click_vector$y),
-               abs(max(df_a$y) - click_vector$y), abs(min(df_a$y) - click_vector$y))
-
-  click_x <- c(abs(max(df_b$x) - click_vector$x), abs(min(df_b$x) - click_vector$x),
-               abs(max(df_a$x) - click_vector$x), abs(min(df_a$x) - click_vector$x))
-
-  # Evaluate by longitude
-  if (min(click_y) < min(click_x)){
-    # Evaluate by longitude
-    if (max(df_a$y) < max(df_b$y)){
-      if (click_vector$y < max(df_a$y) & click_vector$y < min(df_b$y)){
-        state <-  df_a[1, col_spec]
-      } else if (click_vector$y > max(df_a$y) & click_vector$y > min(df_b$y)){
-        state <-  df_b[1, col_spec]
-      } else if (click_vector$y < max(df_a$y) & click_vector$y > min(df_b$y)){
-        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
-      }
-    } else if (max(df_a$y) > max(df_b$y)){
-      if (click_vector$y < max(df_b$y) & click_vector$y < min(df_a$y)){
-        state <-  df_b[1, col_spec]
-      } else if (click_vector$y > max(df_b$y) & click_vector$y > min(df_a$y)){
-        state <-  df_a[1, col_spec]
-      } else if (click_vector$y < max(df_b$y) & click_vector$y > min(df_a$y)){
-        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
-      }
-    }
-  } else if (min(click_x) < min(click_y)){
-    # Evaluate by latitude
-    if (max(df_a$x) < max(df_b$x)){
-      if (click_vector$x < max(df_a$x) & click_vector$x < min(df_b$x)){
-        state <-  df_a[1, col_spec]
-      } else if (click_vector$x > max(df_a$x) & click_vector$x > min(df_b$x)){
-        state <-  df_b[1, col_spec]
-      } else if (click_vector$x < max(df_a$x) & click_vector$x > min(df_b$x)){
-        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
-      }
-    } else if (max(df_a$x) > max(df_b$x)){
-      if (click_vector$x < max(df_b$x) & click_vector$x < min(df_a$x)){
-        state <-  df_b[1, col_spec]
-      } else if (click_vector$x > max(df_b$x) & click_vector$x > min(df_a$x)){
-        state <-  df_a[1, col_spec]
-
-      } else if (click_vector$x < max(df_b$x) & click_vector$x > min(df_a$x)){
-        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
-      }
+# preprocessing function
+# function to evaluate datatypes of columns in dataframe and columns in dataframe
+preWork <- function(data_main, col_spec){
+  # determine if dataframe has sfc datatype
+  select_cols <- data_main %>%
+    select_if(~inherits(., "sfc"))
+  sfc_cols <- colnames(select_cols)
+  # if sfc cols are present perform data processing
+  if (length(sfc_cols) >= 1){
+    # define polygon object being obtained from King's Landing
+    arya_df <- data_main[, c(col_spec)]
+    arya_df$L1 <- row.names(arya_df)
+    arya_df$L1 <- as.numeric(arya_df$L1)
+    # convert geometry column in sf dataframe to x and y column dataframe
+    xyz <-  data.frame(st_coordinates(st_cast(data_main[,"geometry"], "MULTIPOINT")))
+    # x, y and polygon name
+    right_df <- left_join(xyz, arya_df)
+    right_df <- right_df[, c("X", "Y", col_spec)]
+    # change column names
+    colnames(right_df) <- c("x", "y", col_spec)
+  } else {
+    if (!all(c("x", "y") %in% colnames(data_main))){
+      stop("The x and y columns do not exist in dataframe")
+    } else {
+      right_df <- data_main[, c("x", "y", col_spec)]
     }
   }
-  return(state)
+  return(right_df)
 }
+
+# accurate find state or county through click
 # evaluate states by a piece in boundary
 piece_boundary <- function(main_data, click_data, vector_click, col_spec){
   unique_states <- unique(click_data[, col_spec])
@@ -183,28 +151,79 @@ piece_boundary <- function(main_data, click_data, vector_click, col_spec){
   }
   return(statement)
 }
-#' Function for Identifying Polygon Objects In A Map In Shiny
-#'
-#' This package is able to select any polgyon object(country, county or state)
-#' from any map visualization formed by ggplot or any other package extension deployed in Shiny.
-#' It is an extension of nearPoints() but specifically for maps.
-#' It takes in original data used to form map in ggplot, data collected by nearPoints
-#' and input$plot_click value
-#'
-#' @param data_main original data used to form map in ggplot
-#' @param data_click data collected by nearPoints
-#' @param click_vector input$plot_click value
-#' @param col_spec column containing names of polygon objects
-#'
-#' @return Name of the polygon object
-#' @export
-#'
-#' @examples
-#' state <- mingiPolygons(final_stats, sep_df, unknown, "county")
-#' print(state)
 
+# function (possible library)
+polygonIdentify <- function(data_main, data_click, click_vector, col_spec){
+  #get states captured by click
+  statesClick <- unique(data_click[, col_spec])
+  # rows from data_main
+  df_a <- data_main[data_main[, col_spec] == as.character(statesClick[1]),]
+  df_b <- data_main[data_main[, col_spec] == as.character(statesClick[2]),]
+  # evaluate the correct states
+  # find closest point to nearPoints
+  dist_y <- c(abs(max(df_b$y) - mean(data_click$y)), abs(min(df_b$y) - mean(data_click$y)),
+              abs(max(df_a$y) - mean(data_click$y)), abs(min(df_a$y) - mean(data_click$y)))
+  dist_x <- c(abs(max(df_b$x) - mean(data_click$x)), abs(min(df_b$x) - mean(data_click$x)),
+              abs(max(df_a$x) - mean(data_click$x)), abs(min(df_a$x) - mean(data_click$x)))
+  # find closest points by clickVector
+  click_y <- c(abs(max(df_b$y) - click_vector$y), abs(min(df_b$y) - click_vector$y),
+               abs(max(df_a$y) - click_vector$y), abs(min(df_a$y) - click_vector$y))
+
+  click_x <- c(abs(max(df_b$x) - click_vector$x), abs(min(df_b$x) - click_vector$x),
+               abs(max(df_a$x) - click_vector$x), abs(min(df_a$x) - click_vector$x))
+
+  # Evaluate by longitude
+  if (min(click_y) < min(click_x)){
+    # Evaluate by longitude
+    if (max(df_a$y) < max(df_b$y)){
+      if (click_vector$y < max(df_a$y) & click_vector$y < min(df_b$y)){
+        state <-  df_a[1, col_spec]
+      } else if (click_vector$y > max(df_a$y) & click_vector$y > min(df_b$y)){
+        state <-  df_b[1, col_spec]
+      } else if (click_vector$y < max(df_a$y) & click_vector$y > min(df_b$y)){
+        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
+
+      }
+    } else if (max(df_a$y) > max(df_b$y)){
+      if (click_vector$y < max(df_b$y) & click_vector$y < min(df_a$y)){
+        state <-  df_b[1, col_spec]
+
+      } else if (click_vector$y > max(df_b$y) & click_vector$y > min(df_a$y)){
+        state <-  df_a[1, col_spec]
+
+      } else if (click_vector$y < max(df_b$y) & click_vector$y > min(df_a$y)){
+        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
+
+      }
+    }
+  } else if (min(click_x) < min(click_y)){
+    # Evaluate by latitude
+    if (max(df_a$x) < max(df_b$x)){
+      if (click_vector$x < max(df_a$x) & click_vector$x < min(df_b$x)){
+        state <-  df_a[1, col_spec]
+      } else if (click_vector$x > max(df_a$x) & click_vector$x > min(df_b$x)){
+        state <-  df_b[1, col_spec]
+      } else if (click_vector$x < max(df_a$x) & click_vector$x > min(df_b$x)){
+        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
+      }
+    } else if (max(df_a$x) > max(df_b$x)){
+      if (click_vector$x < max(df_b$x) & click_vector$x < min(df_a$x)){
+        state <-  df_b[1, col_spec]
+      } else if (click_vector$x > max(df_b$x) & click_vector$x > min(df_a$x)){
+        state <-  df_a[1, col_spec]
+      } else if (click_vector$x < max(df_b$x) & click_vector$x > min(df_a$x)){
+        state <- piece_boundary(data_main, data_click, click_vector, col_spec)
+      }
+    }
+  }
+  return(state)
+}
 # FUNCTION THAT CLASSIFIES MORE THAN 2 POLYGONS
 mingiPolygons <- function(data_main, data_click, click_vector, col_spec){
+  # data preprocessing
+  data_main <- preWork(data_main, col_spec)
+  # make column arrangement
+  data_click <- data_click[,c(col_spec, "x", "y")]
   # unique values in list
   unique_states <- unique(data_click[,col_spec])
   if (length(unique_states) >= 2){
