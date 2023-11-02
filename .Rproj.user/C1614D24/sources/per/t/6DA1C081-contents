@@ -18,7 +18,7 @@ It is an extension of nearPoints() but specifically for maps.
  It takes in original data used to form map in ggplot, data collected by nearPoints and input$plot_click value.
 
 
- ## SETUP AND REQUIREMENTS
+## SETUP AND REQUIREMENTS
 
  The packages Shiny, tidyverse is needed for this package. 
 

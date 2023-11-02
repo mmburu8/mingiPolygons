@@ -1,0 +1,408 @@
+# library
+devtools::install_github("mmburu8/mingiPolygons")
+library(shiny)
+library(shinythemes)
+library(reactable)
+library(rsconnect)
+library(tidyverse)
+library(usmapdata)
+library(showtext)
+library(ggtext)
+# read csv file
+tableau <- read.csv('childcare modified.csv')
+state_stats <- read.csv('States childcare.csv')
+# visualization function
+geoPlot <- function(data1, pal){
+  ggplot(data1, aes(x=x, y=y))+
+    geom_polygon(aes(group=group, fill=col_choice), color='white')+
+    scale_fill_distiller(palette=pal, direction=1)+
+    theme_void()
+}
+
+# accurate find state or county through click
+# evaluate states by a piece in boundary
+piece_boundary <- function(main_data, click_data, vector_click){
+  unique_states <- unique(click_data$full)
+  # choose data from both states
+  virgin <- main_data[(main_data$full == unique_states[1] | main_data$full == unique_states[2]),]
+  # add input$click x and y into click_data dataframe
+  click_data[nrow(click_data) + 1,] <- c('unknown', vector_click$x, vector_click$y)
+  # change datatype
+  click_data$x <- as.numeric(click_data$x)
+  click_data$y <- as.numeric(click_data$y)
+  # standard deviation
+  sd_states <- c(sd(main_data[main_data$full == unique_states[1],'x']), sd(main_data[main_data$full == unique_states[2],'x']))
+  # get range for piece of boundary
+
+  xrange <-  10 ** nchar(as.integer(max(click_data$x) - min(click_data$x)))
+  yrange <- 10 ** nchar(as.integer(max(click_data$y) - min(click_data$y)))
+  # piece of boundary to be evaluated with
+  virgin_island <- filter(virgin, x > (min(click_data$x) - xrange) &
+                            x < (max(click_data$x) + xrange) & y > (min(click_data$y) - yrange) &
+                            y < (max(click_data$y) + yrange))
+  # determine if data is above or below the curve
+  # get approximation equation
+  Frit <- approxfun(x=virgin_island$x, y=virgin_island$y)
+  # iterate over x to calculate y by reducing through standard deviation
+  clickX <- vector_click$x
+  div <- NA
+  while (is.na(div)){
+    div <- Frit(clickX)
+    if (is.na(div) & clickX > mean(virgin_island$x)){
+      clickX <- clickX - sd(virgin_island$x)
+    } else if(is.na(div) & clickX < mean(virgin_island$x)){
+      clickX <- clickX + sd(virgin_island$x)
+    }
+  }
+  # point out if y_prediction is greater than y_actual
+  barney <- div > vector_click$y
+
+  # identify which state is TRUE or FALSE
+  # filter data
+  disc_1 <- filter(virgin, x > (min(click_data$x) - xrange) & x < (max(click_data$x) + xrange) & full == unique_states[1])
+  disc_1 <- filter(disc_1, y <  (min(click_data$y) - yrange)| y > (max(click_data$y) + yrange))
+  disc_2 <- filter(virgin, x > (min(click_data$x) - xrange) & x < (max(click_data$x) + xrange) & full == unique_states[2])
+  disc_2 <- filter(disc_2, y <  (min(click_data$y) - yrange)| y > (max(click_data$y) + yrange))
+  # length of dataframes
+  if (nrow(disc_1) >= 1 & nrow(disc_2) == 0){
+    # get the row closest to the mean
+    close_3 <- disc_1[which.max(abs(mean(virgin_island$x) - disc_1$x)), c('full', 'x', 'y')]
+    # evaluate by close_3
+    closeX <- close_3[1, 'x']
+    closeY <- close_3[1, 'y']
+    # evaluate states
+    stateYes <- unique_states[1]
+    stateNo <- unique_states[2]
+  } else if (nrow(disc_2) >= 1 & nrow(disc_1) == 0){
+    close_3 <- disc_2[which.max(abs(mean(virgin_island$x) - disc_2$x)), c('full', 'x', 'y')]
+    # evaluate by close_2
+    closeX <- close_3[1, 'x']
+    closeY <- close_3[1, 'y']
+    # evaluate states
+    stateYes <- unique_states[2]
+    stateNo <- unique_states[1]
+  } else if (nrow(disc_2) >= 1 & nrow(disc_1) >= 1){
+    # get the row closest to the mean
+    close_1 <- disc_1[which.max(abs(mean(virgin_island$x) - disc_1$x)), c('full', 'x', 'y')]
+    close_2 <- disc_2[which.max(abs(mean(virgin_island$x) - disc_2$x)), c('full', 'x', 'y')]
+    # evaluate by close_2
+    closeX <- close_2[1, 'x']
+    closeY <- close_2[1, 'y']
+    # evaluate states
+    stateYes <- unique_states[2]
+    stateNo <- unique_states[1]}
+  span <- NA
+  while (is.na(span)){
+    span <- Frit(closeX)
+    if (is.na(span) & closeX > mean(virgin_island$x)){
+      closeX <- closeX - sd(virgin_island$x)
+    } else if(is.na(span) & closeX < mean(virgin_island$x)){
+      closeX <- closeX + sd(virgin_island$x)
+    }
+  }
+  stinson <- span > closeY
+  if (stinson == barney){
+    statement <- stateYes
+  }
+  else{statement <- stateNo
+  }
+  return(statement)
+}
+
+
+# function (possible library)
+polygonIdentify <- function(data_main, data_click, click_vector){
+  #get states captured by input$plot_click
+  statesClick <- unique(data_click$full)
+  if (length(unique(data_click$full)) > 1){
+    # data from each state captured by input$plot_click
+    df_a <- data_main[data_main$full == as.character(statesClick[1]),]
+    df_b <- data_main[data_main$full == as.character(statesClick[2]),]
+    # evaluate the correct states
+    # find closest point to nearPoints
+    dist_y <- c(abs(max(df_b$y) - mean(data_click$y)), abs(min(df_b$y) - mean(data_click$y)),
+                abs(max(df_a$y) - mean(data_click$y)), abs(min(df_a$y) - mean(data_click$y)))
+    dist_x <- c(abs(max(df_b$x) - mean(data_click$x)), abs(min(df_b$x) - mean(data_click$x)),
+                abs(max(df_a$x) - mean(data_click$x)), abs(min(df_a$x) - mean(data_click$x)))
+    # find closest points by clickVector
+    click_y <- c(abs(max(df_b$y) - click_vector$y), abs(min(df_b$y) - click_vector$y),
+                 abs(max(df_a$y) - click_vector$y), abs(min(df_a$y) - click_vector$y))
+    click_x <- c(abs(max(df_b$x) - click_vector$x), abs(min(df_b$x) - click_vector$x),
+                 abs(max(df_a$x) - click_vector$x), abs(min(df_a$x) - click_vector$x))
+    # Evaluate by longitude
+    if (min(click_y) < min(click_x)){
+      # Evaluate by longitude
+      if (max(df_a$y) < max(df_b$y)){
+        if (click_vector$y < max(df_a$y) & click_vector$y < min(df_b$y)){
+          state <-  df_a[1, 'full']
+          print(state)
+          print("Bonjour")
+        } else if (click_vector$y > max(df_a$y) & click_vector$y > min(df_b$y)){
+          state <-  df_b[1, 'full']
+          print(state)
+          print('Buongiorno')
+        } else if (click_vector$y < max(df_a$y) & click_vector$y > min(df_b$y)){
+          state <- piece_boundary(data_main, data_click, click_vector)
+          print(state)
+          print('Habari yako')
+        }
+      } else if (max(df_a$y) > max(df_b$y)){
+        if (click_vector$y < max(df_b$y) & click_vector$y < min(df_a$y)){
+          state <-  df_b[1, 'full']
+          print(state)
+          print('Hello')
+        } else if (click_vector$y > max(df_b$y) & click_vector$y > min(df_a$y)){
+          state <-  df_a[1, 'full']
+          print(state)
+          print('Ola')
+        } else if (click_vector$y < max(df_b$y) & click_vector$y > min(df_a$y)){
+          state <- piece_boundary(data_main, data_click, click_vector)
+          print(state)
+          print('Hujambo')
+        }
+      }
+    } else if (min(click_x) < min(click_y)){
+      # Evaluate by latitude
+      if (max(df_a$x) < max(df_b$x)){
+        if (click_vector$x < max(df_a$x) & click_vector$x < min(df_b$x)){
+          state <-  df_a[1, 'full']
+          print(state)
+          print('Bread')
+        } else if (click_vector$x > max(df_a$x) & click_vector$x > min(df_b$x)){
+          state <-  df_b[1, 'full']
+          print(state)
+          print('Mkate')
+        } else if (click_vector$x < max(df_a$x) & click_vector$x > min(df_b$x)){
+          state <- piece_boundary(data_main, data_click, click_vector)
+          print(state)
+          print('Prestige')
+        }
+      } else if (max(df_a$x) > max(df_b$x)){
+        if (click_vector$x < max(df_b$x) & click_vector$x < min(df_a$x)){
+          state <-  df_b[1, 'full']
+          print(state)
+          print('pain')
+        } else if (click_vector$x > max(df_b$x) & click_vector$x > min(df_a$x)){
+          state <-  df_a[1, 'full']
+          print(state)
+          print('pane')
+        } else if (click_vector$x < max(df_b$x) & click_vector$x > min(df_a$x)){
+          state <- piece_boundary(data_main, data_click, click_vector)
+          print(state)
+          print('Peanut Butter')
+        }
+      }
+    }
+  } else if (length(unique(data_click$full)) == 1){
+    df_kul <- data_main[data_main$full == as.character(statesClick[1]),]
+    state <- df_kul[1, 'full']
+    print(state)
+  }
+}
+
+
+more <- c('states', 'counties')
+# server function
+server <- function(input, output, session){
+  # All(States)
+  data_burna <- reactive({
+    choice <- paste("myccp2018", input$suffix, sep="_")
+    country_map <-  us_map(region=input$Geography)
+    colnames(state_stats)[which(names(state_stats) == choice)] <- 'col_choice'
+    colnames(state_stats)[which(names(state_stats) == 'state_name')] <- 'full'
+    # join map, stats dataframe and get values
+    listem <- list(state_stats, country_map)
+    final_stats <- listem %>% reduce(inner_join, by='full')
+  })
+  # All(Counties)
+  data_davido <- reactive({
+    choice <- paste("myccp2018", input$suffix, sep="_")
+    # data processing
+    # create fips
+    output <- vector('character', nrow(tableau))
+    for (i in 1:length(tableau$county_fips_code)){
+      if (nchar(tableau[i, 'county_fips_code']) == 4){
+        output[[i]] <- paste('0', as.character(tableau[i, 'county_fips_code']), sep='')
+      } else if (nchar(tableau[i, 'county_fips_code']) == 5){
+        output[[i]] <- as.character(tableau[i, 'county_fips_code'])
+      }
+    }
+    tableau$fips <- output
+    country_map <-  us_map(region=input$Geography)
+    colnames(tableau)[which(names(tableau) == choice)] <- 'col_choice'
+    #colnames(tableau)[which(names(tableau) == 'state_name')] <- 'full'
+    # join map, stats dataframe and get values
+    listem <- list(tableau, country_map)
+    final_stats <- listem %>% reduce(inner_join, by='fips')
+  })
+  # Each State
+  data_wiz <- reactive({
+    choice <- paste("myccp2018", input$suffix, sep="_")
+    # customize data to only contain counties from a specified state
+    states_map <- us_map(region='counties', include=input$Geography)
+    tab_county <- tableau[tableau$state_abbreviation == input$Geography,]
+    colnames(tab_county)[which(names(tab_county) == choice)] <- 'col_choice'
+    colnames(tab_county)[which(names(tab_county) == 'county_name')] <- 'county'
+    # join map, stats dataframe and get values
+    listing <- list(tab_county, states_map)
+    final_stats <- listing %>% reduce(inner_join, by='county')
+  })
+
+
+  # plot for version 2
+  output$plot <- renderPlot({
+    if (input$Geography == 'states'){
+      plotify <- geoPlot(data_burna(), 'YlGnBu')
+      plotify + theme(
+        legend.position = c(.65, .1), legend.direction='horizontal',
+        legend.title = element_text(size=10, family='int', hjust=.6),
+        legend.text = element_text(size=7.5, family='int', color='grey15'),
+        legend.key.size = unit(1.2, 'cm')
+      )+
+        labs(fill = "Median Price")
+    } else if(input$Geography == 'counties'){
+      plotify <- geoPlot(data_davido(), 'YlGnBu')
+      plotify + theme(
+        legend.position = c(.65, .1), legend.direction='horizontal',
+        legend.title = element_text(size=10, family='int', hjust=.6),
+        legend.text = element_text(size=7.5, family='int', color='grey15'),
+        legend.key.size = unit(1.2, 'cm')
+      )+
+        labs(fill = "Median Price")
+    } else{
+      plotify <- geoPlot(data_wiz(), 'Blues')
+      plotify + theme(legend.position=c(.92, .85),
+                      legend.title = element_text(size=10, family='int', hjust=.6),
+                      plot.title = element_markdown(size=13, family='int', face='bold', hjust=.4))+
+        labs(fill='Median price')
+    }
+  })
+  # creation of table
+  #output$donda <- renderTable({
+  #if (input$Geography == 'states'){
+  # req(input$plot_click)
+  #arya <- nearPoints(data_burna(), input$plot_click, threshold=24)
+  #arya %>%
+  # filter(group == input$plot_click$group) %>%
+  #select(full, wm_earnings, pov_percent, percent_a, percent_b, percent_h)
+
+  #}
+  #})
+  output$info <- renderPrint({
+    if (input$Geography == 'states'){
+      req(input$plot_click)
+      print(paste('X values', as.character(input$plot_click$x), 'y values', as.character(input$plot_click$y)), sep=' ')
+      drizzy <- nearPoints(data_burna(), input$plot_click, threshold=34, maxpoints = 4)
+      print(drizzy[, c('x', 'y', 'full')])
+      polygonIdentify(data_burna(), drizzy, input$plot_click)
+    }
+  })
+  output$girl <- renderPrint({
+    if (input$Geography == 'states'){
+      req(input$plot_click)
+      print('input$plot_click')
+      print(paste('X values', as.character(input$plot_click$x), 'y values', as.character(input$plot_click$y)), sep=' ')
+      print('nearPoints Function')
+      drizzy <- nearPoints(data_burna(), input$plot_click, threshold=34, maxpoints = 4)
+      print(drizzy[, c('x', 'y', 'full')])
+    }
+  })
+}
+
+# user interface
+ui <- fluidPage(
+  theme = shinytheme("cerulean"),
+  tags$div(class="jumbotron text-center",
+           style="margin-bottom:30px:margin-top:0px;height:10px;background-color: dodgerblue;color:ivory;font-size:30px",
+           "Childcare Prices by Age of Children and Care Setting"),
+  fluidRow(class='myRow1', column(4, selectInput("suffix", "Price Selector",
+                                                 list(
+                                                   "Infant center-based" = "icb",
+                                                   "Infant home-based" = "ihb",
+                                                   "Toddler center-based" = "tcb",
+                                                   "Toddler home-based" = "thb",
+                                                   "Preschool center-based" = "pcb",
+                                                   "Preschool home-based" = "phb",
+                                                   "School-age center-based" = "scb",
+                                                   "School-age home-based" = "shb"
+                                                 ))),
+           column(4, selectInput("Geography", "Geography",
+                                 list( 'All(States)' = 'states', 'All(Counties)'= 'counties',
+                                       'Alabama'  = 'AL', 'Alaska' = 'AK', 'Arizona' = 'AZ', 'Arkansas' = 'AK', 'Florida' = 'FL',
+                                       'California' = 'CA', 'Colorado' = 'CO', 'Connecticut' = 'CT', 'District of Columbia' = 'DC',
+                                       'Georgia' = 'GA', 'Hawaii' = 'HI', 'Idaho' = 'ID', 'Illinois' = 'IL', 'Indiana' = 'IN', 'Iowa' = 'IA',
+                                       'Kansas' = 'KS', 'Kentucky' = 'KY', 'Louisiana' = 'LA', 'Maine' = 'ME', 'Maryland' = 'MD', 'Massachusetts' = 'MA',
+                                       'Michigan' = 'MI', 'Minnesota' = 'MN', 'Mississippi' = 'MS', 'Missouri' = 'MO', 'Montana' = 'MT', 'Nebraska' = 'NE',
+                                       'Nevada' = 'NV', 'New Hampshire' = 'NH', 'New Jersey' = 'NJ', 'New York' = 'NY', 'North Carolina' = 'NC', 'North Dakota' = 'ND',
+                                       'Ohio' = 'OH', 'Oklahoma' = 'OK', 'Oregon' = 'OR', 'Pennsylvania' = 'PA', 'Rhode Island' = 'RI', 'South Carolina' = 'SC',
+                                       'South Dakota' = 'SD', 'Tennessee' = 'TN', 'Texas' = 'TX', 'Utah' = 'UT', 'Vermont' = 'VT', 'Virginia' = 'VA',
+                                       'Washington' = 'WA', 'West Virginia' = 'WV', 'Wisconsin' = 'WI', 'Wyoming' ='WY', 'Delawere' = 'DE')))),
+  fluidRow(class='myRow2',column(9, plotOutput("plot", click='plot_click'),
+                                 verbatimTextOutput('girl')))
+
+)
+
+shinyApp(ui=ui, server=server)
+
+state_count <- reactiveVal()
+
+tryCatch({
+  observeEvent(input$plot_click, {
+    if (input$Geography == "states"){
+      drizzy <- nearPoints(data_burna(), input$plot_click, threshold=34, maxpoints = 4)
+      drizzy <- drizzy[,c('full', 'x', 'y')]
+      state_count(mingiPolygons(data_burna(), drizzy, input$plot_click, "full"))
+    } else if (input$Geography != "states" | input$Geography != "counties"){
+      drizzy <- nearPoints(data_wiz(), input$plot_click, threshold=34, maxpoints = 4)
+      drizzy <- drizzy[,c('county', 'x', 'y')]
+      state_count(mingiPolygons(data_wiz(), drizzy, input$plot_click, "county"))
+    }
+  })}, error = function(e){
+    debug_msg(e$message)
+  })
+observeEvent(state_count(), ignoreInit=T, ignoreNULL = T, {
+  state_choice <- as.character(state_count())
+  if (input$Geography == "states"){
+    state_data <- data_burna()[data_burna()$full == state_choice,]
+    state_data[,c(2:34)] <- round(state_data[,c(2:34)], 2)
+    state_data <- state_data %>%
+      mutate(across(ccpsi_icb:percent_h, scales::label_comma()))
+    col_2018 <- as.character(state_data[1, 'col_choice'])
+    col_2022 <- as.character(state_data[1, paste("myccp2022_", input$suffix, sep="")])
+    showModal(modalDialog(
+      h3(paste("The State Of ", state_choice, sep='')),
+      p(paste("Median year price in 2018: $", col_2018,
+              ".       Median year price in 2022: $", col_2022, sep='')),
+      br(),
+      h4('State Economic Characteristic'),
+      p("Women labor force participation rate: ", state_data[1, "women_lfpr"], "%"), p("Women median earnings: $", state_data[1, "wm_earnings"]),
+      p("Median family income: $", state_data[1, "fam_income"]),
+      p("Percent of families in poverty: ", state_data[1, "pov_percent"], "%"),
+      h4('State Demographic Characteristic'),
+      p(paste("Total Population: ", state_data[1, "total_pop"], sep="")),
+      p(paste("Percent White: ", state_data[1, "percent_w"], "%.     P", "ercent Black: ", state_data[1, "percent_b"], "%.",sep="")),
+      p(paste("Percent Hispanic: ", state_data[1, "percent_h"], "%.     P",  "ercent Asian: ", state_data[1, "percent_a"], "%.", sep="")),
+      easyClose=TRUE
+    )) } else if (input$Geography != "states" | input$Geography != "counties") {
+      state_data <- data_wiz()[data_wiz()$county == state_choice,]
+      state_data[,c(5:37)] <- round(state_data[,c(5:37)], 2)
+      state_data <- state_data %>%
+        mutate(across(ccpsi_icb:percent_w, scales::label_comma()))
+      col_2018 <- as.character(state_data[1, 'col_choice'])
+      col_2022 <- as.character(state_data[1, paste("myccp2022_", input$suffix, sep="")])
+      showModal(modalDialog(
+        h3(paste(state_choice, ". State Of ", state_data[1, "full"], sep='')),
+        p(paste("Median year price in 2018: $", col_2018,
+                ".       Median year price in 2022: $", col_2022, sep='')),
+        br(),
+        h4('State Economic Characteristic'),
+        p("Women labor force participation rate: ", state_data[1, "women_lfpr"], "%"), p("Women median earnings: $", state_data[1, "wm_earnings"]),
+        p("Median family income: $", state_data[1, "fam_income"]),
+        p("Percent of families in poverty: ", state_data[1, "pov_percent"], "%"),
+        h4('State Demographic Characteristic'),
+        p(paste("Total Population: ", state_data[1, "total_pop"], sep="")),
+        p(paste("Percent White: ", state_data[1, "percent_w"], "%.     P", "ercent Black: ", state_data[1, "percent_b"], "%.",sep="")),
+        p(paste("Percent Hispanic: ", state_data[1, "percent_h"], "%.     P",  "ercent Asian: ", state_data[1, "percent_a"], "%.", sep="")),
+        easyClose=TRUE))
+    }
+})

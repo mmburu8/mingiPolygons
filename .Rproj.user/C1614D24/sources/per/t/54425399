@@ -1,0 +1,28 @@
+{
+    "id": "54425399",
+    "path": "C:/Users/USER/Desktop/NanE DATA/Advanced DataViz/Childcare Prices/mingiPolygons/man/midFinger.Rd",
+    "project_path": "man/midFinger.Rd",
+    "type": "r_doc",
+    "hash": "305553337",
+    "contents": "",
+    "dirty": false,
+    "created": 1696338682703.0,
+    "source_on_save": false,
+    "relative_order": 2,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "28,0",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1696339093,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1696339093077,
+    "read_only": true,
+    "read_only_alternatives": [
+        "R/mingiPolygons.R"
+    ]
+}
