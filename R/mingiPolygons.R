@@ -5,6 +5,7 @@ library(tidyverse)
 # short function to create %!in% operator
 '%!in%' <- function(x, y)!('%in%' (x, y))
 
+
 # preprocessing function
 # function to evaluate datatypes of columns in dataframe and columns in dataframe
 preWork <- function(data_main, col_spec){
@@ -26,9 +27,12 @@ preWork <- function(data_main, col_spec){
     # change column names
     colnames(right_df) <- c("x", "y", col_spec)
   } else {
-    if (!all(c("x", "y") %in% colnames(data_main))){
+    if (!all(c("x", "y") %in% colnames(data_main)) & !all(c("X", "Y") %in% colnames(data_main))){
       stop("The x and y columns do not exist in dataframe")
     } else {
+      # change column names
+      names(data_main)[names(data_main) == "X"] <- "x"
+      names(data_main)[names(data_main) == "Y"] <- "y"
       right_df <- data_main[, c("x", "y", col_spec)]
     }
   }
@@ -218,10 +222,11 @@ polygonIdentify <- function(data_main, data_click, click_vector, col_spec){
   }
   return(state)
 }
+
 # FUNCTION THAT CLASSIFIES MORE THAN 2 POLYGONS
-mingiPolygons <- function(data_main, data_click, click_vector, col_spec){
-  # data preprocessing
-  data_main <- preWork(data_main, col_spec)
+mingiPolygons <- function(data_main, click_vector, col_spec, thresh=50, max_pts=4){
+  # get nearPoints dataframe
+  data_click <- nearPoints(data_main, click_vector, threshold=thresh, maxpoints = max_pts)
   # make column arrangement
   data_click <- data_click[,c(col_spec, "x", "y")]
   # unique values in list
