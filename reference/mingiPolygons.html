@@ -60,7 +60,7 @@ and input$plot_click value</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">mingiPolygons</span><span class="op">(</span><span class="va">data_main</span>, <span class="va">data_click</span>, <span class="va">click_vector</span>, <span class="va">col_spec</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">mingiPolygons</span><span class="op">(</span><span class="va">data_main</span>, <span class="va">click_vector</span>, <span class="va">col_spec</span>, <span class="va">thresh</span>, <span class="va">max_pts</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -69,9 +69,6 @@ and input$plot_click value</p>
 <dd><p>original data used to form map in ggplot
 <!-- %%     ~~Describe \code{data_main} here~~ --></p></dd>
 
-  <dt>data_click</dt>
-<dd><p>data collected by nearPoints function
-<!-- %%     ~~Describe \code{data_click} here~~ --></p></dd>
 
   <dt>click_vector</dt>
 <dd><p>input$plot_click value
@@ -80,6 +77,14 @@ and input$plot_click value</p>
   <dt>col_spec</dt>
 <dd><p>column containing names of polygon objects
 <!-- %%     ~~Describe \code{col_spec} here~~ --></p></dd>
+
+  <dt>thresh</dt>
+<dd><p>the threshold value for data points that can be collected by nearPoints function
+<!-- %%     ~~Describe \code{thresh} here~~ --></p></dd>
+
+  <dt>max_pts</dt>
+<dd><p>the number of data points to be collected by nearPoints function
+<!-- %%     ~~Describe \code{max_pts} here~~ --></p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -66,7 +66,7 @@
 </h2>
 <p>It identifies polygon objects in a map visualization formed by ggplot or any other package extension deployed in Shiny.</p>
 <p>It is an extension of nearPoints() but specifically for maps.</p>
-<p>It takes in original data used to form map in ggplot, data collected by nearPoints and input$plot_click value.</p>
+<p>It takes in original data used to form map in ggplot, data collected by nearPoints and input$plot_click value to determine the polygon object</p>
 </div>
 <div class="section level2">
 <h2 id="setup-and-requirements">SETUP AND REQUIREMENTS<a class="anchor" aria-label="anchor" href="#setup-and-requirements"></a>
@@ -75,7 +75,8 @@
 <p>To setup this package in your RStudio, install devtools then devtools::install_github(“mmburu8/mingiPolygons”)</p>
 <p>To see the help page run ‘??mingiPolygons’. Select ‘mingiPolygons::mingiPolygons’</p>
 <p>mingiPolygons requires the map visualization to be deployed in Shiny since it takes plot_click as an argument.</p>
-<p>It also takes in data from nearPoints function.</p>
+<p>Dataframe used to form the map should be processed by mingiPolygons:::preWork(data_main, col_spec)</p>
+<p>Then use the function mingiPolygons to determine polygon object.</p>
 </div>
 <div class="section level2">
 <h2 id="technologies-used">TECHNOLOGIES USED<a class="anchor" aria-label="anchor" href="#technologies-used"></a>
