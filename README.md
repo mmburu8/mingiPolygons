@@ -15,7 +15,7 @@ It identifies polygon objects in a map visualization formed by ggplot or any oth
 
 It is an extension of nearPoints() but specifically for maps.
 
- It takes in original data used to form map in ggplot, data collected by nearPoints and input$plot_click value.
+It takes in original data used to form map in ggplot, data collected by nearPoints and input$plot_click value to determine the polygon object
 
 
 ## SETUP AND REQUIREMENTS
@@ -28,8 +28,9 @@ It is an extension of nearPoints() but specifically for maps.
 
  mingiPolygons requires the map visualization to be deployed in Shiny since it takes plot_click as an argument.
 
- It also takes in data from nearPoints function.
- 
+Dataframe used to form the map should be processed by mingiPolygons:::preWork(data_main, col_spec)
+
+Then use the function mingiPolygons to determine polygon object.
 
 ## TECHNOLOGIES USED
 

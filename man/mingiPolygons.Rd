@@ -14,21 +14,25 @@ It takes in original data used to form map in ggplot, data collected by nearPoin
 and input$plot_click value
 }
 \usage{
-mingiPolygons(data_main, data_click, click_vector, col_spec)
+mingiPolygons(data_main, click_vector, col_spec, thresh, max_pts)
 }
 %- maybe also 'usage' for other objects documented here.
 \arguments{
   \item{data_main}{original data used to form map in ggplot
 %%     ~~Describe \code{data_main} here~~
 }
-  \item{data_click}{data collected by nearPoints function
-%%     ~~Describe \code{data_click} here~~
-}
+
   \item{click_vector}{input$plot_click value
 %%     ~~Describe \code{click_vector} here~~
 }
   \item{col_spec}{column containing names of polygon objects
 %%     ~~Describe \code{col_spec} here~~
+}
+  \item{thresh}{the threshold value for data points that can be collected by nearPoints function
+%%     ~~Describe \code{thresh} here~~
+}
+  \item{max_pts}{the number of data points to be collected by nearPoints function
+%%     ~~Describe \code{max_pts} here~~
 }
 }
 \details{
