@@ -226,7 +226,7 @@ polygonIdentify <- function(data_main, data_click, click_vector, col_spec){
 # FUNCTION THAT CLASSIFIES MORE THAN 2 POLYGONS
 mingiPolygons <- function(data_main, click_vector, col_spec, thresh=50, max_pts=4){
   # get nearPoints dataframe
-  data_click <- nearPoints(data_main, click_vector, threshold=thresh, maxpoints = max_pts)
+  data_click <- nearPoints(data_main, click_vector, threshold=thresh, maxpoints = max_pts, xvar="x", yvar="y")
   # make column arrangement
   data_click <- data_click[,c(col_spec, "x", "y")]
   # unique values in list
